@@ -28,9 +28,10 @@ function LocationSelector({ onSelect }: { onSelect: (latlng: L.LatLng) => void }
 
 function App() {
   const [destination, setDestination] = useState<L.LatLng | null>(null);
+  const [destinationName, setDestinationName] = useState(''); // 🆕 Nuevo estado
   const [dieselPerKm, setDieselPerKm] = useState(0);
   const [pricePerLiter, setPricePerLiter] = useState(0);
-  const [numTrips, setNumTrips] = useState(1); // 👈 Nuevo estado
+  const [numTrips, setNumTrips] = useState(1);
   const [routeCoords, setRouteCoords] = useState<L.LatLng[]>([]);
   const [distanceKm, setDistanceKm] = useState(0);
 
@@ -68,7 +69,6 @@ function App() {
 
         const distanceMeters = response.data.features[0].properties.summary.distance;
         setDistanceKm(distanceMeters / 1000);
-
       } catch (error) {
         console.error('Error fetching route:', error);
         setRouteCoords([]);
@@ -79,7 +79,34 @@ function App() {
     fetchRoute();
   }, [destination]);
 
-  const roundTripDistance = distanceKm * 2; // Ida y vuelta
+  // 🆕 Obtener nombre del lugar cuando cambia el destino
+  useEffect(() => {
+    async function fetchPlaceName() {
+      if (!destination) {
+        setDestinationName('');
+        return;
+      }
+
+      try {
+        const response = await axios.get('https://nominatim.openstreetmap.org/reverse', {
+          params: {
+            format: 'json',
+            lat: destination.lat,
+            lon: destination.lng,
+          },
+        });
+
+        setDestinationName(response.data.display_name || '');
+      } catch (error) {
+        console.error('Error fetching place name:', error);
+        setDestinationName('');
+      }
+    }
+
+    fetchPlaceName();
+  }, [destination]);
+
+  const roundTripDistance = distanceKm * 2;
   const dieselPerRoundTrip = roundTripDistance * dieselPerKm;
   const totalDieselUsed = dieselPerRoundTrip * numTrips;
   const totalCost = totalDieselUsed * pricePerLiter;
@@ -141,37 +168,37 @@ function App() {
             onChange={(e) => setNumTrips(parseInt(e.target.value))}
           />
         </label>
+
         {destination && (
-  <>
-    <div className="results-section">
-      <h3>🛣️ Resultados por viaje (ida y vuelta)</h3>
-      <div className="result">
-        <strong>Distancia:</strong> {roundTripDistance.toFixed(2)} km
-      </div>
-      <div className="result">
-        <strong>Diésel usado:</strong> {(roundTripDistance * dieselPerKm).toFixed(2)} L
-      </div>
-      <div className="result">
-        <strong>Costo:</strong> ${(roundTripDistance * dieselPerKm * pricePerLiter).toFixed(2)} MXN
-      </div>
-    </div>
+          <>
+            <div className="results-section">
+              <h3>🛣️ Resultados por viaje (ida y vuelta)</h3>
+              <div className="result">
+                <strong>Distancia:</strong> {roundTripDistance.toFixed(2)} km
+              </div>
+              <div className="result">
+                <strong>Diésel usado:</strong> {(roundTripDistance * dieselPerKm).toFixed(2)} L
+              </div>
+              <div className="result">
+                <strong>Costo:</strong> ${(roundTripDistance * dieselPerKm * pricePerLiter).toFixed(2)} MXN
+              </div>
+            </div>
 
-    <div className="results-section">
-      <h3>🔁 Resultados totales ({numTrips} viajes)</h3>
-      <div className="result">
-        <strong>Diésel total:</strong> {totalDieselUsed.toFixed(2)} L
-      </div>
-      <div className="result">
-        <strong>Costo total:</strong> ${totalCost.toFixed(2)} MXN
-      </div>
-    </div>
+            <div className="results-section">
+              <h3>🔁 Resultados totales ({numTrips} viajes)</h3>
+              <div className="result">
+                <strong>Diésel total:</strong> {totalDieselUsed.toFixed(2)} L
+              </div>
+              <div className="result">
+                <strong>Costo total:</strong> ${totalCost.toFixed(2)} MXN
+              </div>
+            </div>
 
-    <div className="coords">
-      <strong>Destino:</strong> {destination.lat.toFixed(5)}, {destination.lng.toFixed(5)}
-    </div>
-  </>
-)}
-
+            <div className="coords">
+              <strong>Destino:</strong> {destinationName || `${destination.lat.toFixed(5)}, ${destination.lng.toFixed(5)}`}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
